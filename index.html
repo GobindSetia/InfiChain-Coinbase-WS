@@ -5,8 +5,37 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
+    <style>
+      body{
+        background-color: black;
+      }
+      select{
+        font-size: 20px;
+        width: 20%;
+        margin: auto;
+      }
+      #display{
+        background-color: white;
+        height: 200px;
+        font-size: 25px;
+        width: 50%;
+        margin: auto;
+        text-align: center;
+      }
+    </style>
   </head>
   <body>
+    <select name="" id="" onchange="changeDeno(this)">
+      <option value="BTC-USD">BTC-USD</option>
+      <option value="BTC-INR">BTC-INR</option>
+      <option value="BTC-AED">BTC-AED</option>
+      <option value="BTC-CAD">BTC-CAD</option>
+      <option value="BTC-EUR">BTC-EUR</option>
+      <option value="BTC-GBP">BTC-GBP</option>
+      <option value="BTC-AUD">BTC-AUD</option>
+      <option value="BTC-KRW">BTC-KRW</option>
+      <option value="BTC-SAR">BTC-SAR</option>
+    </select>
     <div id="display">
       <p id="timeS"></p>
       <p id="buyP"></p>
@@ -14,16 +43,26 @@
     </div>
 
     <script type="text/javascript">
+      function changeDeno(e){
+        document.getElementById("timeS").innerText = "Loading.....";
+        document.getElementById("buyP").innerText = "";
+        document.getElementById("sellP").innerText = "";  
+        sendMessage(e.value);
+      }
+      document.getElementById("timeS").innerText = "Loading.....";
       var socket = new WebSocket("wss://ws-feed.pro.coinbase.com");
       var priceSums = [0,0,0,0];
       var id;
+      var initTime
       socket.onopen = function () {
         sendMessage();
       };
-      function sendMessage() {
+      function sendMessage(den="BTC-USD") {
+        initTime = new Date().getTime();
+        priceSums = [0,0,0,0];
         const subMessage = {
           type: "subscribe",
-          product_ids: ["BTC-USD"],
+          product_ids: [`${den}`],
           channels: ["full"],
         };
 
@@ -34,20 +73,19 @@
       socket.onmessage = function onMessage(res) {
         try {
           const payload = JSON.parse(res.data);
-          if (payload.side === "buy") {
+          const currTime = new Date().getTime();
+          var currPrice = [...priceSums];
+          if(currTime>=initTime+5000){
+            displayData(payload,currPrice); 
+            initTime = currTime;
+          }
+          if (payload.type=="received" && payload.price && payload.side === "buy") {
             priceSums[0] += +payload.price;
             priceSums[2]++;
-          } else {
+          } else if(payload.type=="received" && payload.price && payload.side === "sell"){
             priceSums[1] += +payload.price;
             priceSums[3]++;
           }
-          
-          var currPrice = [...priceSums];
-          var currPayload = {...payload};
-          clearTimeout(id);
-          id = setTimeout(() => {  
-            displayData(currPayload,currPrice); 
-          }, 100);
         } catch (err) {
           console.log(err);
         }
@@ -56,7 +94,8 @@
         document.getElementById("timeS").innerText = "Time:  "+p.time.substring(0,10)+" "+p.time.substring(11,19);
         document.getElementById("buyP").innerText = "Avg requested Buy price: "+Math.round(c[0]/c[2]);
         document.getElementById("sellP").innerText = "Avg requested Sell price: "+Math.round(c[1]/c[3]);   
-        priceSums = [0,0,0,0]
+        priceSums = [0,0,0,0];
+
       }
 
       
